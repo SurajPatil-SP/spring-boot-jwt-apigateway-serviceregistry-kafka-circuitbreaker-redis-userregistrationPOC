@@ -1,0 +1,23 @@
+package com.coforge.main.repository;
+
+import java.util.Optional;
+
+import javax.validation.constraints.AssertTrue;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+
+import com.coforge.main.model.UserDetails;
+
+@DataJpaTest
+public class UserDetailsRepositoryTest {
+	
+	@Autowired
+	private UserDetailsRepository userDetailsRepository;
+
+	public void testFindByEmail() {
+		
+		Optional<UserDetails> user = userDetailsRepository.findByEmail("peter@gmsil.com");
+//		assertTrue(user.isPresent());
+	}
+}

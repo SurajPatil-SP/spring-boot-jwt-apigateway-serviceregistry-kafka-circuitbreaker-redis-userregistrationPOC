@@ -1,0 +1,5 @@
+package com.coforge.main.controller;
+
+public class AuthController {
+
+}

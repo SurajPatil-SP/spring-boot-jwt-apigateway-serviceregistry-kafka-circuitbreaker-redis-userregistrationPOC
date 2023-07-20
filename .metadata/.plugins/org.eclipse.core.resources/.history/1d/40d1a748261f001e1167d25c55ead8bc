@@ -1,0 +1,5 @@
+package com.coforge.main.dto;
+
+public class ApiResponseDto {
+
+}

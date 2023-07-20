@@ -1,0 +1,199 @@
+package com.coforge.main.service.impl;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import com.coforge.main.dto.ForgotPasswordRequestDto;
+import com.coforge.main.dto.ForgotPasswordResponseDto;
+import com.coforge.main.dto.LoginRequestDto;
+import com.coforge.main.dto.LoginResponseDto;
+import com.coforge.main.dto.ResetPasswordRequestDto;
+import com.coforge.main.dto.ResetPasswordResponseDto;
+import com.coforge.main.dto.UserDetailsRequestDto;
+import com.coforge.main.dto.UserDetailsResponseDto;
+import com.coforge.main.exceptions.InvalidPasswordException;
+import com.coforge.main.exceptions.InvalidResetTokenException;
+import com.coforge.main.exceptions.UserNotFoundException;
+import com.coforge.main.model.UserDetails;
+import com.coforge.main.repository.UserDetailsRepository;
+import com.coforge.main.service.UserRegistrationService;
+
+@Service
+public class UserRegistrationServiceImpl implements UserRegistrationService {
+
+	private static final Logger log = LoggerFactory.getLogger(UserRegistrationServiceImpl.class);
+
+	private static final long EXPIRE_TOKEN_AFTER_MINUTES = 1;
+
+	@Autowired
+	private UserDetailsRepository userDetailsRepository;
+
+	@Override
+	public UserDetailsResponseDto registerUser(UserDetailsRequestDto userDetailsRequestDto) {
+
+		log.info("Executing registerUser...");
+
+		UserDetails userDetails = new UserDetails();
+		userDetails.setFirstName(userDetailsRequestDto.getFirstName());
+		userDetails.setLastName(userDetailsRequestDto.getLastName());
+		userDetails.setDateOfBirth(userDetailsRequestDto.getDateOfBirth());
+		userDetails.setMobileNumber(userDetailsRequestDto.getMobileNumber());
+		userDetails.setEmail(userDetailsRequestDto.getEmail());
+		userDetails.setPassword(userDetailsRequestDto.getPassword());
+		userDetails.setToken(null);
+		userDetails.setTokenCreationDate(null);
+		userDetails.setForgetPasswordQue(userDetailsRequestDto.getForgetPasswordQue());
+		userDetails.setForgetPasswordAns(userDetailsRequestDto.getForgetPasswordAns());
+
+		userDetails = userDetailsRepository.save(userDetails);
+
+		log.info("User registered: {}", userDetails);
+
+		UserDetailsResponseDto userDetailsResponseDto = new UserDetailsResponseDto(userDetails.getUserId(),
+				userDetails.getEmail(), "User Registration Successful");
+		return userDetailsResponseDto;
+
+	}
+
+	@Override
+	public LoginResponseDto loginUser(LoginRequestDto loginRequestDto) {
+		log.info("Executing loginUser...");
+		LoginResponseDto loginResponse = new LoginResponseDto();
+		UserDetails userDetails = null;
+
+		Optional<UserDetails> user = userDetailsRepository.findByEmail(loginRequestDto.getEmail());
+		if (user.isPresent()) {
+			userDetails = user.get();
+
+			if (userDetails.getEmail().equals(loginRequestDto.getEmail())
+					&& !userDetails.getPassword().equals(loginRequestDto.getPassword())) {
+				throw new InvalidPasswordException("Password is incorrect");
+			}
+
+			if (userDetails.getEmail().equals(loginRequestDto.getEmail())
+					&& userDetails.getPassword().equals(loginRequestDto.getPassword())) {
+				log.info("User login successful");
+				loginResponse.setMessage("User login successful");
+			}
+
+		} else {
+			throw new UserNotFoundException("User not found with email: " + loginRequestDto.getEmail());
+		}
+		return loginResponse;
+	}
+
+	@Override
+	public ResetPasswordResponseDto resetPassword(ResetPasswordRequestDto resetPasswordRequestDto) {
+		log.info("Executing resetPassword...");
+		ResetPasswordResponseDto resetPasswordResponse = new ResetPasswordResponseDto();
+		UserDetails userDetails = null;
+
+		Optional<UserDetails> user = userDetailsRepository.findByToken(resetPasswordRequestDto.getToken());
+		if (user.isPresent()) {
+			userDetails = user.get();
+
+			LocalDateTime tokenCreationDate = userDetails.getTokenCreationDate();
+
+			if (isTokenExpired(tokenCreationDate)) {
+				throw new InvalidResetTokenException("Token is expired");
+			}
+
+			userDetails.setPassword(resetPasswordRequestDto.getPassword());
+			userDetails.setToken(null);
+			userDetails.setTokenCreationDate(null);
+			userDetailsRepository.save(userDetails);
+			log.info("Password reset successful...");
+			resetPasswordResponse.setMessage("Password reset successful");
+
+//			if (userDetails.getEmail().equals(resetPasswordRequestDto.getEmail())
+//					&& !userDetails.getPassword().equals(resetPasswordRequestDto.getOldPassword())) {
+//				throw new InvalidPasswordException("Old password is incorrect");
+//			}
+//
+//			if (userDetails.getEmail().equals(resetPasswordRequestDto.getEmail())
+//					&& userDetails.getPassword().equals(resetPasswordRequestDto.getOldPassword())) {
+//				userDetails.setPassword(resetPasswordRequestDto.getNewPassword());
+//				userDetailsRepository.save(userDetails);
+//				resetPasswordResponse.setMessage("Password reset successful");
+//			}
+
+		} else {
+			throw new InvalidResetTokenException("Token is invalid ");
+		}
+		return resetPasswordResponse;
+	}
+
+	@Override
+//	@CachePut(key = "#email", value = "UserDetails")
+	public ForgotPasswordResponseDto forgotPassword(String email,
+			UriComponentsBuilder uriBuilder) {
+		log.info("Executing forgotPassword...");
+		ForgotPasswordResponseDto forgotPasswordResponse = new ForgotPasswordResponseDto();
+		UserDetails userDetails = null;
+
+		Optional<UserDetails> user = userDetailsRepository.findByEmail(email);
+		if (user.isPresent()) {
+			userDetails = user.get();
+
+			String resetToken = generatePasswordResetToken();
+			String resetLink = uriBuilder.path("/api/v1/users/reset-password")
+//					.queryParam("email", userDetails.getEmail())
+					.build().toUriString();
+
+			userDetails.setToken(resetToken);
+			userDetails.setTokenCreationDate(LocalDateTime.now());
+			userDetailsRepository.save(userDetails);
+
+			forgotPasswordResponse.setEmail(userDetails.getEmail());
+			forgotPasswordResponse.setToken(userDetails.getToken());
+			forgotPasswordResponse.setResetLink(resetLink);
+			log.info("reset token: {} and reset link: {} shared on email: {}", userDetails.getToken(), resetLink,
+					userDetails.getEmail());
+
+		} else {
+			throw new UserNotFoundException("User not found with email: " + email);
+		}
+		return forgotPasswordResponse;
+	}
+
+	private String generatePasswordResetToken() {
+		StringBuilder token = new StringBuilder();
+		return token.append(UUID.randomUUID().toString()).toString();
+	}
+
+	private boolean isTokenExpired(final LocalDateTime tokenCreationDate) {
+
+		LocalDateTime now = LocalDateTime.now();
+		Duration diff = Duration.between(tokenCreationDate, now);
+
+		return diff.toMinutes() >= EXPIRE_TOKEN_AFTER_MINUTES;
+	}
+
+	@Override
+	@Cacheable(value = "UserDetails")
+	public List<UserDetails> retrieveAllUsers() {
+		log.info("Executing retrieveAllUsers...");
+		List<UserDetails> allUsers = userDetailsRepository.findAll();
+		return allUsers;
+	}
+
+	@Override
+	@Cacheable(key = "#email", value = "UserDetails")
+	public UserDetails retrieveUserByEmail(String email) {
+		log.info("Executing retrieveUserByEmail...");
+		UserDetails user = userDetailsRepository.findByEmail(email).get();
+		return user;
+	}
+
+}

@@ -1,0 +1,59 @@
+package com.coforge.main.service;
+
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+
+import com.coforge.main.dto.UserDetailsRequestDto;
+import com.coforge.main.dto.UserDetailsResponseDto;
+import com.coforge.main.model.UserDetails;
+import com.coforge.main.repository.UserDetailsRepository;
+
+@SpringBootTest
+public class UserRegistrationServiceTest {
+
+	@MockBean
+	private UserDetailsRepository userDetailsRepository;
+	
+	@Autowired
+	private UserRegistrationService userRegistrationService;
+	
+	@Test
+	public void testRegisterUser() throws ParseException {
+		
+		UserDetailsRequestDto userDetailsRequestDto = new UserDetailsRequestDto();
+		userDetailsRequestDto.setFirstName("Peter");
+		userDetailsRequestDto.setLastName("Finch");
+		userDetailsRequestDto.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDetailsRequestDto.setMobileNumber("9899748596");
+		userDetailsRequestDto.setEmail("peter@gmail.com");
+		userDetailsRequestDto.setDepartmentCode("CoforgeD-1");
+		userDetailsRequestDto.setPassword("peter@123");
+		userDetailsRequestDto.setToken(null);
+		userDetailsRequestDto.setTokenCreationDate(null);
+		
+		UserDetails user = new UserDetails(101L, "Peter", "Finch", new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1", "peter@123", null, null);
+		
+		when(userDetailsRepository.save(user)).thenReturn(user);
+		
+		UserDetailsResponseDto registerUser = userRegistrationService.registerUser(userDetailsRequestDto);
+		
+		assertEquals(user.getUserId(), registerUser.getUserId());
+		assertEquals(user.getEmail(), registerUser.getEmail());
+		assertEquals("User Registration Successful", registerUser.getMessage());
+		
+		verify(userDetailsRepository, times(1)).save(Mockito.any(UserDetails.class));
+	}
+}

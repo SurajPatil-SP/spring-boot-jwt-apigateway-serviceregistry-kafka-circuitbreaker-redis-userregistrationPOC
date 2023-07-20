@@ -1,0 +1,5 @@
+package com.coforge.main.validator;
+
+public class RouteValidator {
+
+}

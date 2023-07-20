@@ -1,0 +1,5 @@
+package com.coforge.main.util;
+
+public class JwtUtil {
+
+}

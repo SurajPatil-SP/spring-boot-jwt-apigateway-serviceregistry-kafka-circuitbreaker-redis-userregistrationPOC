@@ -1,0 +1,47 @@
+package com.coforge.main.service.impl;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.coforge.main.dto.DepartmentDto;
+import com.coforge.main.mapper.DepartmentMapper;
+import com.coforge.main.model.Department;
+import com.coforge.main.repository.DepartmentRepository;
+import com.coforge.main.service.DepartmentService;
+
+@Service
+public class DepartmentServiceImpl implements DepartmentService {
+
+	@Autowired
+	private DepartmentRepository departmentRepository;
+
+	@Override
+	public DepartmentDto saveDepartment(DepartmentDto departmentDto) {
+		// convert department dto to department jpa entity
+//		Department department = DepartmentMapper.mapToDepartment(departmentDto);
+//
+//		Department savedDepartment = departmentRepository.save(department);
+//
+//		DepartmentDto savedDepartmentDto = DepartmentMapper.mapToDepartmentDto(savedDepartment);
+//
+//		return savedDepartmentDto;
+		
+		Department department = new Department();
+		department.setDepartmentName(departmentDto.getDepartmentName());
+		department.setDepartmentDescription(departmentDto.getDepartmentDescription());
+		department.setDepartmentCode(departmentDto.getDepartmentCode());
+		department = departmentRepository.save(department);
+		return departmentDto;
+	}
+
+//	@Override
+//	public DepartmentDto getDepartmentByCode(String departmentCode) {
+//
+//		Department department = departmentRepository.findByDepartmentCode(departmentCode);
+//
+//		DepartmentDto departmentDto = DepartmentMapper.mapToDepartmentDto(department);
+//
+//		return departmentDto;
+//	}
+
+}

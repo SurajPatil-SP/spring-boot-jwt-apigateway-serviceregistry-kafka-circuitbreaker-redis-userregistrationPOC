@@ -1,0 +1,5 @@
+package com.coforge.main.repository;
+
+public interface DepartmentRepository {
+
+}

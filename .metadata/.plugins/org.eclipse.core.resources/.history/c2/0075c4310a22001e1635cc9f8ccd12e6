@@ -1,0 +1,194 @@
+package com.coforge.main.service;
+
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import com.coforge.main.dto.ForgotPasswordResponseDto;
+import com.coforge.main.dto.LoginRequestDto;
+import com.coforge.main.dto.LoginResponseDto;
+import com.coforge.main.dto.ResetPasswordRequestDto;
+import com.coforge.main.dto.ResetPasswordResponseDto;
+import com.coforge.main.dto.UserDetailsRequestDto;
+import com.coforge.main.dto.UserDetailsResponseDto;
+import com.coforge.main.exceptions.InvalidPasswordException;
+import com.coforge.main.exceptions.UserNotFoundException;
+import com.coforge.main.model.UserDetails;
+import com.coforge.main.repository.UserDetailsRepository;
+
+@SpringBootTest
+public class UserRegistrationServiceTest {
+
+	@MockBean
+	private UserDetailsRepository userDetailsRepository;
+
+	@Autowired
+	private UserRegistrationService userRegistrationService;
+
+	@Test
+	public void testRegisterUser() throws ParseException {
+
+		UserDetailsRequestDto userDetailsRequestDto = new UserDetailsRequestDto();
+		userDetailsRequestDto.setFirstName("Peter");
+		userDetailsRequestDto.setLastName("Finch");
+		userDetailsRequestDto.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDetailsRequestDto.setMobileNumber("9899748596");
+		userDetailsRequestDto.setEmail("peter@gmail.com");
+		userDetailsRequestDto.setDepartmentCode("CoforgeD-1");
+		userDetailsRequestDto.setPassword("peter@123");
+		userDetailsRequestDto.setToken(null);
+		userDetailsRequestDto.setTokenCreationDate(null);
+
+		UserDetails user = new UserDetails(101L, "Peter", "Finch",
+				new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1",
+				"peter@123", null, null);
+
+		when(userDetailsRepository.save(user)).thenReturn(user);
+
+//		UserDetailsResponseDto registerUser = userRegistrationService.registerUser(userDetailsRequestDto);
+//		
+//		assertEquals(user.getUserId(), registerUser.getUserId());
+//		assertEquals(user.getEmail(), registerUser.getEmail());
+//		assertEquals("User Registration Successful", registerUser.getMessage());
+
+		verify(userDetailsRepository, times(1)).save(user);
+	}
+
+	@Test
+	public void testLoginUser() throws ParseException {
+
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peter@gmail.com");
+		loginRequestDto.setPassword("peter@123");
+
+		UserDetails user = new UserDetails(101L, "Peter", "Finch",
+				new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1",
+				"peter@123", null, null);
+
+		when(userDetailsRepository.findByEmail(loginRequestDto.getEmail())).thenReturn(Optional.of(user));
+
+		LoginResponseDto response = userRegistrationService.loginUser(loginRequestDto);
+		assertNotNull(response);
+		assertEquals("User login successful", response.getMessage());
+
+		verify(userDetailsRepository, times(1)).findByEmail(loginRequestDto.getEmail());
+	}
+
+	@Test
+	public void testLoginUserInvalidPassword() throws ParseException {
+
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peter@gmail.com");
+		loginRequestDto.setPassword("Peter@123");
+
+		UserDetails user = new UserDetails(101L, "Peter", "Finch",
+				new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1",
+				"peter@123", null, null);
+
+		when(userDetailsRepository.findByEmail(loginRequestDto.getEmail())).thenReturn(Optional.of(user));
+
+		InvalidPasswordException exception = assertThrows(InvalidPasswordException.class, () -> {
+			userRegistrationService.loginUser(loginRequestDto);
+		});
+
+		assertEquals("Password is incorrect", exception.getMessage());
+
+		verify(userDetailsRepository, times(1)).findByEmail(loginRequestDto.getEmail());
+	}
+
+	@Test
+	public void testLoginUser_UserNotFound() throws ParseException {
+
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peterfinch@gmail.com");
+		loginRequestDto.setPassword("peter@123");
+
+		when(userDetailsRepository.findByEmail(loginRequestDto.getEmail())).thenReturn(Optional.empty());
+
+		UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> {
+			userRegistrationService.loginUser(loginRequestDto);
+		});
+
+		assertEquals("User not found with email: " + loginRequestDto.getEmail(), exception.getMessage());
+
+		verify(userDetailsRepository, times(1)).findByEmail(loginRequestDto.getEmail());
+	}
+
+	@Test
+	public void testForgotPassword() throws ParseException {
+		String email = "peter@gmail.com";
+		UriComponentsBuilder uriBuilder = UriComponentsBuilder.newInstance();
+
+		UserDetails user = new UserDetails(101L, "Peter", "Finch",
+				new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1",
+				"peter@123", null, null);
+
+		when(userDetailsRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+		ForgotPasswordResponseDto response = userRegistrationService.forgotPassword(email, uriBuilder);
+		assertNotNull(response);
+		assertEquals(user.getEmail(), response.getEmail());
+		assertNotNull(response.getResetLink());
+
+		verify(userDetailsRepository, times(1)).findByEmail(email);
+		verify(userDetailsRepository, times(1)).save(user);
+	}
+
+	@Test
+	public void testForgotPasswordUserNotFound() throws ParseException {
+		String email = "peterfinch@gmail.com";
+		UriComponentsBuilder uriBuilder = UriComponentsBuilder.newInstance();
+
+		when(userDetailsRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+		UserNotFoundException exception = assertThrows(UserNotFoundException.class, () -> {
+			userRegistrationService.forgotPassword(email, uriBuilder);
+		});
+
+		assertEquals("User not found with email: " + email, exception.getMessage());
+
+		verify(userDetailsRepository, times(1)).findByEmail(email);
+	}
+	
+	@Test
+	public void testResetPassword() throws ParseException {
+		
+		ResetPasswordRequestDto resetPasswordRequestDto = new ResetPasswordRequestDto();
+		resetPasswordRequestDto.setEmail("peter@gmail.com");
+		resetPasswordRequestDto.setPassword("peter@456");
+		resetPasswordRequestDto.setToken(UUID.randomUUID().toString());
+		
+		UserDetails user = new UserDetails(101L, "Peter", "Finch",
+				new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9899748596", "peter@gmail.com", "CoforgeD-1",
+				"peter@123", resetPasswordRequestDto.getToken(), LocalDateTime.now());
+
+		when(userDetailsRepository.findByToken(resetPasswordRequestDto.getToken())).thenReturn(Optional.of(user));
+		
+		ResetPasswordResponseDto response = userRegistrationService.resetPassword(resetPasswordRequestDto);
+		assertNotNull(response);
+		assertEquals("Password reset successful", response.getMessage());
+		
+		assertNull(user.getToken());
+		assertNull(user.getTokenCreationDate());
+		assertEquals("peter@456", user.getPassword());
+		
+		verify(userDetailsRepository, times(1)).findByToken(resetPasswordRequestDto.getToken());
+	}
+}

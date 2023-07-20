@@ -1,0 +1,5 @@
+package com.coforge.main.mapper;
+
+public class DepartmentMapper {
+
+}

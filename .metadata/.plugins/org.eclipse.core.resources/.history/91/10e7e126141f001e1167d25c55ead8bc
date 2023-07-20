@@ -1,0 +1,5 @@
+package com.coforge.main.model;
+
+public class Department {
+
+}

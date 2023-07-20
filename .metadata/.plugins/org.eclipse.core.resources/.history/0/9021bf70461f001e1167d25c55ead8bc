@@ -1,0 +1,16 @@
+package com.coforge.main.dto;
+
+import com.coforge.main.model.UserDetails;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserDetailsEvent {
+
+	private String message;
+	private UserDetails userDetails;
+}

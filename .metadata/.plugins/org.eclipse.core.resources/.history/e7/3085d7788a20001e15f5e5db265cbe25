@@ -1,0 +1,5 @@
+package com.coforge.main.service;
+
+public interface AuthService {
+
+}

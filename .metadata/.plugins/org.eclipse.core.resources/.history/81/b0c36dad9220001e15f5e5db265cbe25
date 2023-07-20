@@ -1,0 +1,27 @@
+package com.coforge.main.service.impl;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.coforge.main.entity.UserCredentials;
+import com.coforge.main.repository.UserCredentialsRepository;
+import com.coforge.main.service.AuthService;
+
+@Service
+public class AuthServiceImpl implements AuthService {
+
+	@Autowired
+	private UserCredentialsRepository userCredentialsRepository;
+	
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+	
+	@Override
+	public String saveUser(UserCredentials userCredentials) {
+		userCredentials.setPassword(passwordEncoder.encode(userCredentials.getPassword()));
+		userCredentialsRepository.save(userCredentials);
+		return "User Added to the System";
+	}
+
+}

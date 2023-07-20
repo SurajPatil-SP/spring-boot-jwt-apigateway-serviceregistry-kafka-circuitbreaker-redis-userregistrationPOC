@@ -1,0 +1,5 @@
+package com.coforge.main.service.impl;
+
+public class DepartmentServiceImpl {
+
+}

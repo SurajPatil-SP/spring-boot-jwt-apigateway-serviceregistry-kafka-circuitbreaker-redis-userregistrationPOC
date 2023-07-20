@@ -1,0 +1,8 @@
+package com.coforge.main.service;
+
+import com.coforge.main.entity.UserCredentials;
+
+public interface AuthService {
+
+	public String saveUser (UserCredentials userCredentials);
+}

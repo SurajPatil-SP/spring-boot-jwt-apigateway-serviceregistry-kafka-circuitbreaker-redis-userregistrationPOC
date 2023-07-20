@@ -1,0 +1,33 @@
+package com.coforge.main.dto;
+
+import java.time.LocalDateTime;
+import java.util.Date;
+
+import com.coforge.main.model.UserDetails;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserDetailsEvent {
+
+	private String message;
+
+	private Long userId;
+
+	private String firstName;
+
+	private String lastName;
+
+	private Date dateOfBirth;
+
+	private String mobileNumber;
+
+	private String email;
+
+	private String departmentCode;
+
+}

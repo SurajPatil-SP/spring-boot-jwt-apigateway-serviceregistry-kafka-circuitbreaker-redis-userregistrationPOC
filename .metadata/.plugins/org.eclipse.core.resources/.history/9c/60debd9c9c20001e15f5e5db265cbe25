@@ -1,0 +1,5 @@
+package com.coforge.main.security.service;
+
+public class CustomUserDetails {
+
+}

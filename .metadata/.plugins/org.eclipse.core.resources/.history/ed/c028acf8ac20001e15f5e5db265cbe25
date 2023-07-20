@@ -1,0 +1,23 @@
+spring.application.name=API-GATEWAY
+server.port=8083
+management.endpoints.web.exposure.include=*
+
+eureka.client.register-with-eureka= true
+eureka.client.fetch-registry= true
+eureka.client.service-url.defaultZone: http://localhost:8761/eureka/
+eureka.instance.hostname: localhost
+
+## Routes for User Registration Service
+spring.cloud.gateway.routes[0].id=USER-REGISTRATION-SERVICE
+spring.cloud.gateway.routes[0].uri=lb://USER-REGISTRATION-SERVICE
+spring.cloud.gateway.routes[0].predicates[0]=Path=/api/v1/users/**
+
+## Routes for Department Service
+spring.cloud.gateway.routes[1].id=DEPARTMENT-SERVICE
+spring.cloud.gateway.routes[1].uri=lb://DEPARTMENT-SERVICE
+spring.cloud.gateway.routes[1].predicates[0]=Path=/api/v1/departments/**
+
+## Routes for auth Service
+spring.cloud.gateway.routes[2].id=AUTH-SERVICE
+spring.cloud.gateway.routes[2].uri=lb://AUTH-SERVICE
+spring.cloud.gateway.routes[2].predicates[0]=Path=/auth/**

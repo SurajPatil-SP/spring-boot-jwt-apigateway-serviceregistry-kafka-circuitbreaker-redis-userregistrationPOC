@@ -1,0 +1,19 @@
+package com.coforge.main.dto;
+
+import java.io.Serializable;
+
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ForgotPasswordResponseDto implements Serializable {
+
+	private String email;
+	private String token;
+	private String resetLink;
+}

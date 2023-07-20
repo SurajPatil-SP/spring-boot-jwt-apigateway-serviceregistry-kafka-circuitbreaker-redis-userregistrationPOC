@@ -1,0 +1,5 @@
+package com.coforge.main.config;
+
+public class AppConfig {
+
+}

@@ -1,0 +1,68 @@
+package com.coforge.main.controller;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import com.coforge.main.dto.UserDetailsRequestDto;
+import com.coforge.main.dto.UserDetailsResponseDto;
+import com.coforge.main.service.UserRegistrationService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@WebMvcTest(UserRegistrationController.class)
+public class UserRegistrationControllerTest {
+
+	@MockBean
+	private UserRegistrationService userRegistrationService;
+
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Test
+	public void testUserRegistration() throws JsonProcessingException, Exception {
+		
+		UserDetailsResponseDto userDetailsResponseDto = new UserDetailsResponseDto();
+		userDetailsResponseDto.setUserId(1L);
+		userDetailsResponseDto.setEmail("peter@gmail.com");
+		userDetailsResponseDto.setMessage("User Registration Successful");
+
+		UserDetailsRequestDto userDetailsRequestDto = new UserDetailsRequestDto();
+		userDetailsRequestDto.setFirstName("Peter");
+		userDetailsRequestDto.setLastName("Finch");
+		userDetailsRequestDto.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDetailsRequestDto.setMobileNumber("9899748596");
+		userDetailsRequestDto.setEmail("peter@gmail.com");
+		userDetailsRequestDto.setDepartmentCode("CoforgeD-1");
+		userDetailsRequestDto.setPassword("peter@123");
+		userDetailsRequestDto.setToken(null);
+		userDetailsRequestDto.setTokenCreationDate(null);
+		
+		when(userRegistrationService.registerUser(userDetailsRequestDto))
+		.thenReturn(userDetailsResponseDto);
+
+		mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/users/signUp")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(userDetailsRequestDto)))
+				.andExpect(MockMvcResultMatchers.status().isCreated())
+				.andExpect(jsonPath("$.userId").value(userDetailsResponseDto.getUserId()))
+				.andExpect(jsonPath("$.email").value(userDetailsResponseDto.getEmail()))
+				.andExpect(jsonPath("$.message").value(userDetailsResponseDto.getMessage()))
+				.andReturn();
+	}
+}

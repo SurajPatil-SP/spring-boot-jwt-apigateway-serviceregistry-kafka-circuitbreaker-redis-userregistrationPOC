@@ -1,0 +1,5 @@
+package com.coforge.main.exceptions.handler;
+
+public class RestTemplateResponseErrorHandler {
+
+}

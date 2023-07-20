@@ -1,0 +1,40 @@
+package com.coforge.main.controller;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.coforge.main.dto.DepartmentDto;
+import com.coforge.main.service.DepartmentService;
+
+@RestController
+@RequestMapping("/api/v1/departments")
+public class DepartmentController {
+
+	private static final Logger log = LoggerFactory.getLogger(DepartmentController.class);
+
+	@Autowired
+	private DepartmentService departmentService;
+
+	@PostMapping
+	public ResponseEntity<DepartmentDto> saveDepartment(@RequestBody DepartmentDto departmentDto) {
+		log.info("Executing saveDepartment...");
+		DepartmentDto savedDepartment = departmentService.saveDepartment(departmentDto);
+		return new ResponseEntity<>(savedDepartment, HttpStatus.CREATED);
+	}
+
+	@GetMapping("{departmentCode}")
+	public ResponseEntity<DepartmentDto> getDepartment(@PathVariable("departmentCode") String departmentCode) {
+		log.info("Executing getDepartment...");
+		DepartmentDto departmentDto = departmentService.getDepartmentByCode(departmentCode);
+		return new ResponseEntity<>(departmentDto, HttpStatus.OK);
+	}
+}

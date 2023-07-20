@@ -1,0 +1,340 @@
+package com.coforge.main.controller;
+
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import com.coforge.main.dto.ApiResponseDto;
+import com.coforge.main.dto.DepartmentDto;
+import com.coforge.main.dto.ForgotPasswordRequestDto;
+import com.coforge.main.dto.ForgotPasswordResponseDto;
+import com.coforge.main.dto.LoginRequestDto;
+import com.coforge.main.dto.LoginResponseDto;
+import com.coforge.main.dto.ResetPasswordRequestDto;
+import com.coforge.main.dto.ResetPasswordResponseDto;
+import com.coforge.main.dto.UserDetailsEvent;
+import com.coforge.main.dto.UserDetailsRequestDto;
+import com.coforge.main.dto.UserDetailsResponseDto;
+import com.coforge.main.exceptions.InvalidPasswordException;
+import com.coforge.main.exceptions.InvalidResetTokenException;
+import com.coforge.main.exceptions.UserNotFoundException;
+import com.coforge.main.model.UserDetails;
+import com.coforge.main.service.UserRegistrationService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@WebMvcTest(UserRegistrationController.class)
+public class UserRegistrationControllerTest {
+
+	@MockBean
+	private UserRegistrationService userRegistrationService;
+
+	@Autowired
+	private MockMvc mockMvc;
+	
+	private static final String RESET_PASSWORD_URL = "http://localhost:8083/api/v1/users/reset-password";
+
+	@Test
+	public void testUserRegistration() throws JsonProcessingException, Exception {
+		
+		UserDetailsResponseDto userDetailsResponseDto = new UserDetailsResponseDto();
+		userDetailsResponseDto.setUserId(1L);
+		userDetailsResponseDto.setEmail("peter@gmail.com");
+		userDetailsResponseDto.setMessage("User Registration Successful");
+
+		UserDetailsRequestDto userDetailsRequestDto = new UserDetailsRequestDto();
+		userDetailsRequestDto.setFirstName("Peter");
+		userDetailsRequestDto.setLastName("Finch");
+		userDetailsRequestDto.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDetailsRequestDto.setMobileNumber("9899748596");
+		userDetailsRequestDto.setEmail("peter@gmail.com");
+		userDetailsRequestDto.setDepartmentCode("CoforgeD-1");
+		userDetailsRequestDto.setPassword("peter@123");
+		userDetailsRequestDto.setToken(null);
+		userDetailsRequestDto.setTokenCreationDate(null);
+		
+		when(userRegistrationService.registerUser(userDetailsRequestDto))
+		.thenReturn(userDetailsResponseDto);
+
+		mockMvc.perform(post("/api/v1/users/signUp")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(userDetailsRequestDto)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.userId").value(userDetailsResponseDto.getUserId()))
+				.andExpect(jsonPath("$.email").value(userDetailsResponseDto.getEmail()))
+				.andExpect(jsonPath("$.message").value(userDetailsResponseDto.getMessage()))
+				.andReturn();
+		
+		verify(userRegistrationService, times(1)).registerUser(userDetailsRequestDto);
+	}
+	
+	@Test
+	public void testUserRegistrationInvalidInput() throws JsonProcessingException, Exception {
+
+		UserDetailsRequestDto userDetailsRequestDto = new UserDetailsRequestDto();
+		userDetailsRequestDto.setFirstName("Peter");
+		userDetailsRequestDto.setLastName("Finch");
+		userDetailsRequestDto.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDetailsRequestDto.setMobileNumber("9899748596");
+		userDetailsRequestDto.setEmail("petergmail.com"); // Email not in format
+		userDetailsRequestDto.setDepartmentCode("CoforgeD-1");
+		userDetailsRequestDto.setPassword("peter@123");
+
+		mockMvc.perform(post("/api/v1/users/signUp")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(userDetailsRequestDto)))
+				.andExpect(status().isBadRequest())
+				.andReturn();
+	}
+	
+	@Test
+	public void testUserLogin() throws JsonProcessingException, Exception {
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peter@gmail.com");
+		loginRequestDto.setPassword("peter@123");
+
+		LoginResponseDto loginResponseDto = new LoginResponseDto();
+		loginResponseDto.setMessage("User login successful");
+
+		when(userRegistrationService.loginUser(loginRequestDto)).thenReturn(loginResponseDto);
+
+		mockMvc.perform(post("/api/v1/users/signIn")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(loginRequestDto)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value(loginResponseDto.getMessage()))
+				.andReturn();
+
+		verify(userRegistrationService, times(1)).loginUser(loginRequestDto);
+	}
+	
+	@Test
+	public void testUserLoginInvalidCredentials() throws JsonProcessingException, Exception {
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peter@gmail.com");
+		loginRequestDto.setPassword("PETER@123");
+
+		when(userRegistrationService.loginUser(loginRequestDto)).thenThrow(new InvalidPasswordException("Password is incorrect"));
+
+		mockMvc.perform(post("/api/v1/users/signIn")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(loginRequestDto)))
+				.andExpect(status().isBadRequest())
+				.andReturn();
+
+		verify(userRegistrationService, times(1)).loginUser(loginRequestDto);
+	}
+	
+	@Test
+	public void testUserLoginUserNotFound() throws JsonProcessingException, Exception {
+		LoginRequestDto loginRequestDto = new LoginRequestDto();
+		loginRequestDto.setEmail("peterfinch@gmail.com");
+		loginRequestDto.setPassword("peter@123");
+
+		when(userRegistrationService.loginUser(loginRequestDto)).thenThrow(new UserNotFoundException("User not found with email: " + loginRequestDto.getEmail()));
+
+		mockMvc.perform(post("/api/v1/users/signIn")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(loginRequestDto)))
+				.andExpect(status().isNotFound())
+				.andReturn();
+
+		verify(userRegistrationService, times(1)).loginUser(loginRequestDto);
+	}
+	
+	@Test
+	public void testForgotPassword() throws JsonProcessingException, Exception {
+
+		ForgotPasswordRequestDto forgotPasswordRequestDto = new ForgotPasswordRequestDto();
+		forgotPasswordRequestDto.setEmail("peter@gmail.com");
+
+		ForgotPasswordResponseDto forgotPasswordResponseDto = new ForgotPasswordResponseDto();
+		forgotPasswordResponseDto.setEmail("peter@gmail.com");
+		forgotPasswordResponseDto.setToken(UUID.randomUUID().toString());
+		forgotPasswordResponseDto.setResetLink(RESET_PASSWORD_URL);
+
+		when(userRegistrationService.forgotPassword(Mockito.eq(forgotPasswordRequestDto.getEmail()),
+				Mockito.any(UriComponentsBuilder.class))).thenReturn(forgotPasswordResponseDto);
+
+		mockMvc.perform(post("/api/v1/users/forgot-password")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(forgotPasswordRequestDto)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value(forgotPasswordResponseDto.getEmail()))
+				.andExpect(jsonPath("$.token").value(forgotPasswordResponseDto.getToken()))
+				.andExpect(jsonPath("$.resetLink").value(forgotPasswordResponseDto.getResetLink()))
+				.andReturn();
+	}
+	
+	@Test
+	public void testForgotPasswordUserNotFound() throws JsonProcessingException, Exception {
+		ForgotPasswordRequestDto forgotPasswordRequestDto = new ForgotPasswordRequestDto();
+		forgotPasswordRequestDto.setEmail("peterfinch@gmail.com");
+
+		when(userRegistrationService.forgotPassword(Mockito.eq(forgotPasswordRequestDto.getEmail()),
+				Mockito.any(UriComponentsBuilder.class))).thenThrow(
+						new UserNotFoundException("User not found with email: " + forgotPasswordRequestDto.getEmail()));
+
+		mockMvc.perform(post("/api/v1/users/forgot-password")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(forgotPasswordRequestDto)))
+				.andExpect(status().isNotFound())
+				.andReturn();
+
+		verify(userRegistrationService, times(1)).forgotPassword(Mockito.eq(forgotPasswordRequestDto.getEmail()),
+				Mockito.any(UriComponentsBuilder.class));
+	}
+	
+	@Test
+	public void testChangePassword() throws JsonProcessingException, Exception {
+		ResetPasswordRequestDto resetPasswordRequestDto = new ResetPasswordRequestDto();
+		resetPasswordRequestDto.setEmail("peter@gmail.com");
+		resetPasswordRequestDto.setPassword("peter@456");
+		resetPasswordRequestDto.setToken(UUID.randomUUID().toString());
+
+		ResetPasswordResponseDto resetPasswordResponseDto = new ResetPasswordResponseDto();
+		resetPasswordResponseDto.setMessage("Password reset successful");
+
+		when(userRegistrationService.resetPassword(resetPasswordRequestDto)).thenReturn(resetPasswordResponseDto);
+
+		mockMvc.perform(post("/api/v1/users/reset-password")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(resetPasswordRequestDto)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.message").value("Password reset successful"))
+			.andReturn();
+
+		verify(userRegistrationService, times(1)).resetPassword(resetPasswordRequestDto);
+	}
+	
+	@Test
+	public void testChangePasswordInvalidToken() throws JsonProcessingException, Exception {
+		ResetPasswordRequestDto resetPasswordRequestDto = new ResetPasswordRequestDto();
+		resetPasswordRequestDto.setEmail("peter@gmail.com");
+		resetPasswordRequestDto.setPassword("peter@456");
+		resetPasswordRequestDto.setToken("efg-ghi-erp-uip");
+
+		when(userRegistrationService.resetPassword(resetPasswordRequestDto)).thenThrow(new InvalidResetTokenException("Token is invalid"));
+
+		mockMvc.perform(post("/api/v1/users/reset-password")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(resetPasswordRequestDto)))
+			.andExpect(status().isBadRequest())
+			.andReturn();
+
+		verify(userRegistrationService, times(1)).resetPassword(resetPasswordRequestDto);
+	}
+	
+	@Test
+	public void testChangePasswordTokenExpired() throws JsonProcessingException, Exception {
+		ResetPasswordRequestDto resetPasswordRequestDto = new ResetPasswordRequestDto();
+		resetPasswordRequestDto.setEmail("peter@gmail.com");
+		resetPasswordRequestDto.setPassword("peter@456");
+		resetPasswordRequestDto.setToken(UUID.randomUUID().toString());
+
+		when(userRegistrationService.resetPassword(resetPasswordRequestDto)).thenThrow(new InvalidResetTokenException("Token is expired"));
+
+		mockMvc.perform(post("/api/v1/users/reset-password")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(new ObjectMapper().writeValueAsString(resetPasswordRequestDto)))
+			.andExpect(status().isBadRequest())
+			.andReturn();
+
+		verify(userRegistrationService, times(1)).resetPassword(resetPasswordRequestDto);
+	}
+	
+	@Test
+	public void testRetrieveAllUsers() throws Exception {
+		List<UserDetails> users = Arrays.asList(new UserDetails(101L, "Peter", "Finch", new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9895969897", "peter@gmail.com", "CoforgeD-1", "peter@123", null, null),
+				new UserDetails(102L, "John", "Doe", new SimpleDateFormat("dd/mm/yyyy").parse("11/11/1991"), "9874123654", "john@gmail.com", "CoforgeD-2", "john@456", null, null));
+		
+		when(userRegistrationService.retrieveAllUsers()).thenReturn(users);
+		
+		mockMvc.perform(get("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON))
+		.andExpect(status().isOk())
+		.andExpect(jsonPath("$[0].firstName").value("Peter"))
+		.andReturn();
+		
+		verify(userRegistrationService, times(1)).retrieveAllUsers();
+	}
+	
+	@Test
+	public void testRetrieveAllUsersListEmpty() throws Exception {
+		List<UserDetails> users = new ArrayList<UserDetails>();
+
+		when(userRegistrationService.retrieveAllUsers()).thenReturn(users);
+
+		mockMvc.perform(get("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNoContent())
+				.andReturn();
+
+		verify(userRegistrationService, times(1)).retrieveAllUsers();
+	}
+	
+	@Test
+	public void testRetrieveUserByEmail() throws Exception {
+		UserDetails user = new UserDetails(101L, "Peter", "Finch", new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"), "9895969897", "peter@gmail.com", "CoforgeD-1", "peter@123", null, null);
+		
+		when(userRegistrationService.retrieveUserByEmail("peter@gmail.com")).thenReturn(user);
+		
+		mockMvc.perform(get("/api/v1/users/{email}", "peter@gmail.com")
+				.contentType(MediaType.APPLICATION_JSON))
+		.andExpect(status().isOk())
+		.andExpect(jsonPath("$.firstName").value("Peter"))
+		.andReturn();
+		
+		verify(userRegistrationService, times(1)).retrieveUserByEmail("peter@gmail.com");
+	}
+	
+	@Test
+	public void testGetUserById() throws Exception {
+		
+		UserDetailsEvent userDeatils = new UserDetailsEvent();
+		userDeatils.setUserId(101L);
+		userDeatils.setFirstName("John");
+		userDeatils.setLastName("Doe");
+		userDeatils.setDateOfBirth(new SimpleDateFormat("dd/mm/yyyy").parse("10/10/1990"));
+		userDeatils.setMobileNumber("9874123654");
+		userDeatils.setEmail("john@mail.com");
+		userDeatils.setDepartmentCode("CoforgeD-1");
+
+		DepartmentDto departmentDto = new DepartmentDto();
+		departmentDto.setDepartmentName("Java");
+		departmentDto.setDepartmentDescription("Provides Java Services");
+		departmentDto.setDepartmentCode("CoforgeD-1");
+
+		ApiResponseDto response = new ApiResponseDto();
+		response.setUser(userDeatils);
+		response.setDepartment(departmentDto);
+		
+		when(userRegistrationService.retrieveUserDetailsById(101L)).thenReturn(response);
+		
+		mockMvc.perform(get("/api/v1/users/retrieve/{userId}", 101L)
+				.contentType(MediaType.APPLICATION_JSON))
+		.andExpect(status().isOk())
+		.andReturn();
+		
+		verify(userRegistrationService, times(1)).retrieveUserDetailsById(101L);
+	}
+}

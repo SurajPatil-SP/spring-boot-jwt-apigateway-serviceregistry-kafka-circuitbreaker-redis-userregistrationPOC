@@ -1,0 +1,5 @@
+package com.coforge.main.exceptions;
+
+public class ResourceNotFoundException {
+
+}
